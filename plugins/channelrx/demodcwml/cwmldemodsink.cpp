@@ -86,6 +86,8 @@ void CWMLDemodSink::openWav()
         return;
     }
 
+    m_wavPath = path;
+
     const quint32 sampleRate = CWMLDemodSettings::CWMLDEMOD_CHANNEL_SAMPLE_RATE;
     const quint32 byteRate = sampleRate * 4;
     quint8 header[44];
@@ -105,6 +107,10 @@ void CWMLDemodSink::openWav()
     m_wavSampleCount = 0;
     m_wavSamplesSinceHeaderPatch = 0;
     qInfo().noquote() << "CWMLDemodSink: recording to" << path;
+
+    if (getMessageQueueToChannel()) {
+        getMessageQueueToChannel()->push(CWMLDemod::MsgRecordingStatus::create(true, path));
+    }
 }
 
 void CWMLDemodSink::patchWavHeader()
@@ -134,8 +140,13 @@ void CWMLDemodSink::closeWav()
     fclose(m_wavFile);
     m_wavFile = nullptr;
 
+    if (getMessageQueueToChannel()) {
+        getMessageQueueToChannel()->push(CWMLDemod::MsgRecordingStatus::create(false, m_wavPath));
+    }
+
     // Drop empty stubs (e.g. rapid retuning)
     if (m_wavSampleCount == 0) {
+        QFile::remove(m_wavPath);
         return;
     }
 

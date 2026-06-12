@@ -28,6 +28,7 @@
 MESSAGE_CLASS_DEFINITION(CWMLDemod::MsgConfigureCWMLDemod, Message)
 MESSAGE_CLASS_DEFINITION(CWMLDemod::MsgText, Message)
 MESSAGE_CLASS_DEFINITION(CWMLDemod::MsgModelStatus, Message)
+MESSAGE_CLASS_DEFINITION(CWMLDemod::MsgRecordingStatus, Message)
 
 const char * const CWMLDemod::m_channelIdURI = "sdrangel.channel.cwmldemod";
 const char * const CWMLDemod::m_channelId = "CWMLDemod";
@@ -166,6 +167,19 @@ bool CWMLDemod::handleMessage(const Message& cmd)
         if (getMessageQueueToGUI())
         {
             CWMLDemod::MsgModelStatus *msg = new CWMLDemod::MsgModelStatus(report);
+            getMessageQueueToGUI()->push(msg);
+        }
+
+        return true;
+    }
+    else if (CWMLDemod::MsgRecordingStatus::match(cmd))
+    {
+        // Forward to GUI
+        CWMLDemod::MsgRecordingStatus& report = (CWMLDemod::MsgRecordingStatus&)cmd;
+
+        if (getMessageQueueToGUI())
+        {
+            CWMLDemod::MsgRecordingStatus *msg = new CWMLDemod::MsgRecordingStatus(report);
             getMessageQueueToGUI()->push(msg);
         }
 

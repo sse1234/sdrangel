@@ -17,6 +17,7 @@
 
 #include <QDebug>
 #include <QFileDialog>
+#include <QFileInfo>
 #include <QScrollBar>
 
 #include "cwmldemodgui.h"
@@ -120,8 +121,15 @@ bool CWMLDemodGUI::handleMessage(const Message& message)
     else if (CWMLDemod::MsgModelStatus::match(message))
     {
         CWMLDemod::MsgModelStatus& report = (CWMLDemod::MsgModelStatus&) message;
-        ui->modelStatus->setText(report.getMessage());
+        m_modelStatusText = report.getMessage();
+        ui->modelStatus->setText(m_modelStatusText);
         ui->modelStatus->setStyleSheet(report.getLoaded() ? "QLabel { color: white }" : "QLabel { color: red }");
+        return true;
+    }
+    else if (CWMLDemod::MsgRecordingStatus::match(message))
+    {
+        CWMLDemod::MsgRecordingStatus& report = (CWMLDemod::MsgRecordingStatus&) message;
+        updateRecordingDisplay(report.getActive(), report.getPath());
         return true;
     }
 
@@ -194,9 +202,26 @@ void CWMLDemodGUI::on_clearText_clicked()
 void CWMLDemodGUI::on_audioRecord_toggled(bool checked)
 {
     m_settings.m_audioRecord = checked;
-    ui->audioRecord->setToolTip(QString("Record decoder input audio to %1 (8 kHz float WAV, new file on retune)")
-        .arg(m_settings.m_audioRecordDir));
     applySettings(QStringList({"audioRecord"}));
+}
+
+void CWMLDemodGUI::updateRecordingDisplay(bool active, const QString& path)
+{
+    ui->audioRecord->setStyleSheet(active
+        ? "QToolButton { background-color : red; }"
+        : "QToolButton { background:rgb(79,79,79); }");
+
+    if (active)
+    {
+        ui->modelStatus->setText(QString("%1 — REC %2").arg(m_modelStatusText, QFileInfo(path).fileName()));
+        ui->audioRecord->setToolTip(QString("Recording to %1").arg(path));
+    }
+    else
+    {
+        ui->modelStatus->setText(m_modelStatusText);
+        ui->audioRecord->setToolTip(QString("Record decoder input audio to %1 (8 kHz float WAV, new file on retune)")
+            .arg(m_settings.m_audioRecordDir));
+    }
 }
 
 void CWMLDemodGUI::onWidgetRolled(QWidget* widget, bool rollDown)
@@ -274,7 +299,8 @@ CWMLDemodGUI::CWMLDemodGUI(PluginAPI* pluginAPI, DeviceUISet *deviceUISet, Baseb
     m_deviceCenterFrequency(0),
     m_doApplySettings(true),
     m_basebandSampleRate(0),
-    m_tickCount(0)
+    m_tickCount(0),
+    m_modelStatusText("Not loaded")
 {
     setAttribute(Qt::WA_DeleteOnClose, true);
     m_helpURL = "plugins/channelrx/demodcwml/readme.md";

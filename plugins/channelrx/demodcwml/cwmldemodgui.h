@@ -74,6 +74,7 @@ private:
     CWMLDemod* m_cwmlDemod;
     int m_basebandSampleRate;
     uint32_t m_tickCount;
+    QString m_modelStatusText;
     MessageQueue m_inputMessageQueue;
 
     explicit CWMLDemodGUI(PluginAPI* pluginAPI, DeviceUISet *deviceUISet, BasebandSampleSink *rxChannel, QWidget* parent = 0);
@@ -86,6 +87,7 @@ private:
     void makeUIConnections();
     void updateAbsoluteCenterFrequency();
     void textReceived(const QString& text);
+    void updateRecordingDisplay(bool active, const QString& path);
 
     void leaveEvent(QEvent*);
     void enterEvent(EnterEventType*);

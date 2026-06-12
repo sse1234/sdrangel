@@ -101,6 +101,29 @@ public:
         {}
     };
 
+    // Sent from Sink when an audio recording file is opened or closed
+    class MsgRecordingStatus : public Message {
+        MESSAGE_CLASS_DECLARATION
+
+    public:
+        bool getActive() const { return m_active; }
+        QString getPath() const { return m_path; }
+
+        static MsgRecordingStatus* create(bool active, const QString& path)
+        {
+            return new MsgRecordingStatus(active, path);
+        }
+
+    private:
+        bool m_active;
+        QString m_path;
+
+        MsgRecordingStatus(bool active, const QString& path) :
+            m_active(active),
+            m_path(path)
+        {}
+    };
+
     CWMLDemod(DeviceAPI *deviceAPI);
     virtual ~CWMLDemod();
     virtual void destroy() { delete this; }

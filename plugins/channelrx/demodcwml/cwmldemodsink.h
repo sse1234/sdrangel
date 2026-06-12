@@ -110,6 +110,7 @@ private:
     // Off-air audio recorder: float32 WAV of the exact decoder input
     // (8 kHz mono), one file per tuning. Runs on the baseband thread.
     FILE *m_wavFile = nullptr;
+    QString m_wavPath;
     std::size_t m_wavSampleCount = 0;
     std::size_t m_wavSamplesSinceHeaderPatch = 0;
     qint64 m_deviceCenterFrequency = 0;
