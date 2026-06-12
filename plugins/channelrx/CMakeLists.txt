@@ -205,6 +205,12 @@ else()
     message(STATUS "Not building demodrtty (ENABLE_CHANNELRX_DEMODRTTY=${ENABLE_CHANNELRX_DEMODRTTY})")
 endif()
 
+if (ENABLE_CHANNELRX_DEMODCWML AND CWML_DIR)
+    add_subdirectory(demodcwml)
+else()
+    message(STATUS "Not building demodcwml (ENABLE_CHANNELRX_DEMODCWML=${ENABLE_CHANNELRX_DEMODCWML} CWML_DIR=${CWML_DIR})")
+endif()
+
 if (ENABLE_CHANNELRX_DEMODILS)
     add_subdirectory(demodils)
 else()
