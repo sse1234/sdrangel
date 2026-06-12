@@ -16,6 +16,8 @@
 ///////////////////////////////////////////////////////////////////////////////////
 
 #include <QColor>
+#include <QStandardPaths>
+#include <QtGlobal>
 
 #include "util/simpleserializer.h"
 #include "settings/serializable.h"
@@ -33,6 +35,14 @@ void CWMLDemodSettings::resetToDefaults()
     m_inputFrequencyOffset = 0;
     m_rfBandwidth = 500.0f;
     m_modelDir = "";
+
+    // CWML_RECORD_DIR in the environment turns recording on from the start —
+    // useful for unattended data-collection sessions.
+    const QByteArray envDir = qgetenv("CWML_RECORD_DIR");
+    m_audioRecord = !envDir.isEmpty();
+    m_audioRecordDir = envDir.isEmpty()
+        ? QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + "/cwml-recordings"
+        : QString::fromLocal8Bit(envDir);
 
     m_rgbColor = QColor(255, 180, 0).rgb();
     m_title = "CW Demodulator (ML)";
@@ -53,6 +63,8 @@ QByteArray CWMLDemodSettings::serialize() const
     s.writeS32(2, m_streamIndex);
     s.writeFloat(3, m_rfBandwidth);
     s.writeString(4, m_modelDir);
+    s.writeBool(5, m_audioRecord);
+    s.writeString(6, m_audioRecordDir);
 
     if (m_channelMarker) {
         s.writeBlob(11, m_channelMarker->serialize());
@@ -96,6 +108,8 @@ bool CWMLDemodSettings::deserialize(const QByteArray& data)
         d.readS32(2, &m_streamIndex, 0);
         d.readFloat(3, &m_rfBandwidth, 500.0f);
         d.readString(4, &m_modelDir, "");
+        d.readBool(5, &m_audioRecord, m_audioRecord);
+        d.readString(6, &m_audioRecordDir, m_audioRecordDir);
 
         if (m_channelMarker)
         {
@@ -150,6 +164,12 @@ void CWMLDemodSettings::applySettings(const QStringList& settingsKeys, const CWM
     if (settingsKeys.contains("modelDir")) {
         m_modelDir = settings.m_modelDir;
     }
+    if (settingsKeys.contains("audioRecord")) {
+        m_audioRecord = settings.m_audioRecord;
+    }
+    if (settingsKeys.contains("audioRecordDir")) {
+        m_audioRecordDir = settings.m_audioRecordDir;
+    }
     if (settingsKeys.contains("rgbColor")) {
         m_rgbColor = settings.m_rgbColor;
     }
@@ -197,6 +217,12 @@ QString CWMLDemodSettings::getDebugString(const QStringList& settingsKeys, bool 
     }
     if (settingsKeys.contains("modelDir") || force) {
         ostr << " m_modelDir: " << m_modelDir.toStdString();
+    }
+    if (settingsKeys.contains("audioRecord") || force) {
+        ostr << " m_audioRecord: " << m_audioRecord;
+    }
+    if (settingsKeys.contains("audioRecordDir") || force) {
+        ostr << " m_audioRecordDir: " << m_audioRecordDir.toStdString();
     }
     if (settingsKeys.contains("rgbColor") || force) {
         ostr << " m_rgbColor: " << m_rgbColor;

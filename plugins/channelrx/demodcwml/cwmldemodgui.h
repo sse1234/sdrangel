@@ -95,6 +95,7 @@ private slots:
     void on_rfBW_valueChanged(int value);
     void on_modelDir_clicked();
     void on_clearText_clicked();
+    void on_audioRecord_toggled(bool checked);
     void onWidgetRolled(QWidget* widget, bool rollDown);
     void onMenuDialogCalled(const QPoint& p);
     void handleInputMessages();

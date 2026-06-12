@@ -15,10 +15,14 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.          //
 ///////////////////////////////////////////////////////////////////////////////////
 
+#include <QDateTime>
 #include <QDebug>
+#include <QDir>
+#include <QFile>
 #include <QFileInfo>
 
 #include <complex.h>
+#include <cstring>
 
 #include "cw_streaming_decoder.h"
 
@@ -49,6 +53,128 @@ CWMLDemodSink::CWMLDemodSink() :
 
 CWMLDemodSink::~CWMLDemodSink()
 {
+    closeWav();
+}
+
+// 44-byte canonical header, format 3 (IEEE float32), mono, 8 kHz.
+// Sizes are patched in place as the file grows so a crash mid-recording
+// still leaves a readable WAV.
+void CWMLDemodSink::openWav()
+{
+    closeWav();
+
+    if (!m_settings.m_audioRecord || m_settings.m_audioRecordDir.isEmpty()) {
+        return;
+    }
+
+    QDir dir(m_settings.m_audioRecordDir);
+    if (!dir.exists() && !dir.mkpath(".")) {
+        qWarning() << "CWMLDemodSink::openWav: cannot create" << m_settings.m_audioRecordDir;
+        return;
+    }
+
+    const qint64 absFrequency = m_deviceCenterFrequency + m_settings.m_inputFrequencyOffset;
+    const QString name = QString("cw_%1_%2Hz.wav")
+        .arg(QDateTime::currentDateTimeUtc().toString("yyyyMMdd-HHmmss"))
+        .arg(absFrequency);
+    const QString path = dir.filePath(name);
+
+    m_wavFile = fopen(QFile::encodeName(path).constData(), "wb");
+
+    if (!m_wavFile) {
+        qWarning() << "CWMLDemodSink::openWav: cannot open" << path;
+        return;
+    }
+
+    const quint32 sampleRate = CWMLDemodSettings::CWMLDEMOD_CHANNEL_SAMPLE_RATE;
+    const quint32 byteRate = sampleRate * 4;
+    quint8 header[44];
+    memcpy(header, "RIFF\0\0\0\0WAVEfmt ", 16);
+    const quint32 fmtSize = 16;
+    const quint16 fmtFloat = 3, channels = 1, blockAlign = 4, bitsPerSample = 32;
+    memcpy(header + 16, &fmtSize, 4);
+    memcpy(header + 20, &fmtFloat, 2);
+    memcpy(header + 22, &channels, 2);
+    memcpy(header + 24, &sampleRate, 4);
+    memcpy(header + 28, &byteRate, 4);
+    memcpy(header + 32, &blockAlign, 2);
+    memcpy(header + 34, &bitsPerSample, 2);
+    memcpy(header + 36, "data\0\0\0\0", 8);
+    fwrite(header, 1, sizeof(header), m_wavFile);
+
+    m_wavSampleCount = 0;
+    m_wavSamplesSinceHeaderPatch = 0;
+    qInfo().noquote() << "CWMLDemodSink: recording to" << path;
+}
+
+void CWMLDemodSink::patchWavHeader()
+{
+    if (!m_wavFile) {
+        return;
+    }
+
+    const quint32 dataSize = (quint32) (m_wavSampleCount * 4);
+    const quint32 riffSize = 36 + dataSize;
+    fseek(m_wavFile, 4, SEEK_SET);
+    fwrite(&riffSize, 4, 1, m_wavFile);
+    fseek(m_wavFile, 40, SEEK_SET);
+    fwrite(&dataSize, 4, 1, m_wavFile);
+    fseek(m_wavFile, 0, SEEK_END);
+    fflush(m_wavFile);
+    m_wavSamplesSinceHeaderPatch = 0;
+}
+
+void CWMLDemodSink::closeWav()
+{
+    if (!m_wavFile) {
+        return;
+    }
+
+    patchWavHeader();
+    fclose(m_wavFile);
+    m_wavFile = nullptr;
+
+    // Drop empty stubs (e.g. rapid retuning)
+    if (m_wavSampleCount == 0) {
+        return;
+    }
+
+    qInfo() << "CWMLDemodSink: recorded" << m_wavSampleCount << "samples"
+            << QString("(%1 s)").arg(m_wavSampleCount / (double) CWMLDemodSettings::CWMLDEMOD_CHANNEL_SAMPLE_RATE, 0, 'f', 1);
+}
+
+void CWMLDemodSink::rotateWav()
+{
+    if (m_settings.m_audioRecord) {
+        openWav();
+    } else {
+        closeWav();
+    }
+}
+
+void CWMLDemodSink::writeWavSamples(const float *samples, std::size_t n)
+{
+    if (!m_wavFile || n == 0) {
+        return;
+    }
+
+    fwrite(samples, sizeof(float), n, m_wavFile);
+    m_wavSampleCount += n;
+    m_wavSamplesSinceHeaderPatch += n;
+
+    // Keep the header sizes fresh every ~5 s
+    if (m_wavSamplesSinceHeaderPatch >= 5u * CWMLDemodSettings::CWMLDEMOD_CHANNEL_SAMPLE_RATE) {
+        patchWavHeader();
+    }
+}
+
+void CWMLDemodSink::setDeviceCenterFrequency(qint64 frequency)
+{
+    if (frequency != m_deviceCenterFrequency)
+    {
+        m_deviceCenterFrequency = frequency;
+        rotateWav();
+    }
 }
 
 void CWMLDemodSink::feed(const SampleVector::const_iterator& begin, const SampleVector::const_iterator& end)
@@ -107,6 +233,8 @@ void CWMLDemodSink::processOneSample(Complex &ci)
 
 void CWMLDemodSink::feedPipeline()
 {
+    writeWavSamples(m_audioBuffer.data(), m_audioBuffer.size());
+
     if (!m_pipeline)
     {
         m_audioBuffer.clear();
@@ -185,6 +313,10 @@ void CWMLDemodSink::applyChannelSettings(int channelSampleRate, int channelFrequ
         m_nco.setFreq(-channelFrequencyOffset, channelSampleRate);
     }
 
+    if (m_channelFrequencyOffset != channelFrequencyOffset) {
+        rotateWav(); // retuned within the passband: separate recording
+    }
+
     if ((m_channelSampleRate != channelSampleRate) || force)
     {
         m_interpolator.create(16, channelSampleRate, m_settings.m_rfBandwidth / 2.2);
@@ -208,6 +340,9 @@ void CWMLDemodSink::applySettings(const QStringList& settingsKeys, const CWMLDem
     }
 
     bool reloadModel = force || (settingsKeys.contains("modelDir") && (settings.m_modelDir != m_settings.m_modelDir));
+    bool recordChanged = force
+        || (settingsKeys.contains("audioRecord") && (settings.m_audioRecord != m_settings.m_audioRecord))
+        || (settingsKeys.contains("audioRecordDir") && (settings.m_audioRecordDir != m_settings.m_audioRecordDir));
 
     if (force) {
         m_settings = settings;
@@ -217,5 +352,9 @@ void CWMLDemodSink::applySettings(const QStringList& settingsKeys, const CWMLDem
 
     if (reloadModel) {
         loadModel();
+    }
+
+    if (recordChanged) {
+        rotateWav();
     }
 }

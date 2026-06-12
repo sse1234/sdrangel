@@ -284,6 +284,19 @@
        </widget>
       </item>
       <item>
+       <widget class="QToolButton" name="audioRecord">
+        <property name="toolTip">
+         <string>Record decoder input audio (8 kHz float WAV, new file on retune)</string>
+        </property>
+        <property name="text">
+         <string>REC</string>
+        </property>
+        <property name="checkable">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+      <item>
        <spacer name="horizontalSpacer2">
         <property name="orientation">
          <enum>Qt::Horizontal</enum>

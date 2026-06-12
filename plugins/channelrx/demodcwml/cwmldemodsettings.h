@@ -32,6 +32,8 @@ struct CWMLDemodSettings
     qint32 m_inputFrequencyOffset;
     Real m_rfBandwidth;
     QString m_modelDir;     //!< directory containing model-streaming.onnx/.json (empty = built-in default)
+    bool m_audioRecord;     //!< record decoder input audio (8 kHz float WAV, one file per tuning)
+    QString m_audioRecordDir;
 
     quint32 m_rgbColor;
     QString m_title;

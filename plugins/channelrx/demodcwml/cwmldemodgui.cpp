@@ -191,6 +191,14 @@ void CWMLDemodGUI::on_clearText_clicked()
     ui->text->clear();
 }
 
+void CWMLDemodGUI::on_audioRecord_toggled(bool checked)
+{
+    m_settings.m_audioRecord = checked;
+    ui->audioRecord->setToolTip(QString("Record decoder input audio to %1 (8 kHz float WAV, new file on retune)")
+        .arg(m_settings.m_audioRecordDir));
+    applySettings(QStringList({"audioRecord"}));
+}
+
 void CWMLDemodGUI::onWidgetRolled(QWidget* widget, bool rollDown)
 {
     (void) widget;
@@ -350,6 +358,9 @@ void CWMLDemodGUI::displaySettings()
     ui->rfBW->setValue((int) m_settings.m_rfBandwidth);
     ui->modelDir->setToolTip(QString("Model directory: %1")
         .arg(m_settings.m_modelDir.isEmpty() ? "(built-in default)" : m_settings.m_modelDir));
+    ui->audioRecord->setChecked(m_settings.m_audioRecord);
+    ui->audioRecord->setToolTip(QString("Record decoder input audio to %1 (8 kHz float WAV, new file on retune)")
+        .arg(m_settings.m_audioRecordDir));
 
     updateIndexLabel();
 
@@ -395,6 +406,7 @@ void CWMLDemodGUI::makeUIConnections()
     QObject::connect(ui->rfBW, &QSlider::valueChanged, this, &CWMLDemodGUI::on_rfBW_valueChanged);
     QObject::connect(ui->modelDir, &QToolButton::clicked, this, &CWMLDemodGUI::on_modelDir_clicked);
     QObject::connect(ui->clearText, &QToolButton::clicked, this, &CWMLDemodGUI::on_clearText_clicked);
+    QObject::connect(ui->audioRecord, &QToolButton::toggled, this, &CWMLDemodGUI::on_audioRecord_toggled);
 }
 
 void CWMLDemodGUI::updateAbsoluteCenterFrequency()

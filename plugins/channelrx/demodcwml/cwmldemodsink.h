@@ -18,8 +18,11 @@
 #ifndef INCLUDE_CWMLDEMODSINK_H
 #define INCLUDE_CWMLDEMODSINK_H
 
+#include <cstdio>
 #include <memory>
 #include <vector>
+
+#include <QString>
 
 #include "dsp/channelsamplesink.h"
 #include "dsp/nco.h"
@@ -46,6 +49,7 @@ public:
     void applySettings(const QStringList& settingsKeys, const CWMLDemodSettings& settings, bool force = false);
     void setMessageQueueToChannel(MessageQueue *messageQueue) { m_messageQueueToChannel = messageQueue; }
     void setChannel(ChannelAPI *channel) { m_channel = channel; }
+    void setDeviceCenterFrequency(qint64 frequency);
 
     double getMagSq() const { return m_magsq; }
 
@@ -103,10 +107,22 @@ private:
     // 20 ms blocks at 8 kHz: small enough for prompt text, large enough to amortize
     static const std::size_t m_audioBlockSize = CWMLDemodSettings::CWMLDEMOD_CHANNEL_SAMPLE_RATE / 50;
 
+    // Off-air audio recorder: float32 WAV of the exact decoder input
+    // (8 kHz mono), one file per tuning. Runs on the baseband thread.
+    FILE *m_wavFile = nullptr;
+    std::size_t m_wavSampleCount = 0;
+    std::size_t m_wavSamplesSinceHeaderPatch = 0;
+    qint64 m_deviceCenterFrequency = 0;
+
     void processOneSample(Complex &ci);
     void feedPipeline();
     void loadModel();
     void sendModelStatus(bool loaded, const QString& message);
+    void openWav();
+    void closeWav();
+    void rotateWav();   //!< close current file and start a new one (no-op when not recording)
+    void patchWavHeader();
+    void writeWavSamples(const float *samples, std::size_t n);
     MessageQueue *getMessageQueueToChannel() { return m_messageQueueToChannel; }
 };
 
