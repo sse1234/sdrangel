@@ -147,6 +147,9 @@ bool CWMLDemod::handleMessage(const Message& cmd)
         // Forward to GUI
         CWMLDemod::MsgText& report = (CWMLDemod::MsgText&)cmd;
 
+        // Info level so headless/server runs still surface decodes
+        qInfo().noquote() << "CWMLDemod::decoded:" << report.getText();
+
         if (getMessageQueueToGUI())
         {
             CWMLDemod::MsgText *msg = new CWMLDemod::MsgText(report);
