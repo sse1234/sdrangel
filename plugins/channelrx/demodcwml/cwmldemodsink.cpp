@@ -74,9 +74,15 @@ void CWMLDemodSink::openWav()
     }
 
     const qint64 absFrequency = m_deviceCenterFrequency + m_settings.m_inputFrequencyOffset;
-    const QString name = QString("cw_%1_%2Hz.wav")
+    // Receiver tag keeps simultaneous channels (e.g. two rigs in one
+    // instance recording the same frequency) from colliding on a filename.
+    const QString rxTag = m_channel
+        ? QString("_R%1C%2").arg(m_channel->getDeviceSetIndex()).arg(m_channel->getIndexInDeviceSet())
+        : QString();
+    const QString name = QString("cw_%1_%2Hz%3.wav")
         .arg(QDateTime::currentDateTimeUtc().toString("yyyyMMdd-HHmmss"))
-        .arg(absFrequency);
+        .arg(absFrequency)
+        .arg(rxTag);
     const QString path = dir.filePath(name);
 
     m_wavFile = fopen(QFile::encodeName(path).constData(), "wb");
