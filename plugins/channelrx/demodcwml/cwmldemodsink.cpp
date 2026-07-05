@@ -53,6 +53,9 @@ CWMLDemodSink::CWMLDemodSink() :
 
 CWMLDemodSink::~CWMLDemodSink()
 {
+    // The channel (and its GUI) are being torn down with us — a recording
+    // status message would be delivered to a half-destroyed receiver.
+    m_messageQueueToChannel = nullptr;
     closeWav();
 }
 
